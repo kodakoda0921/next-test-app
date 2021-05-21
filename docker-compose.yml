@@ -1,0 +1,50 @@
+version: "3"
+volumes:
+  frontend:
+    driver: 'local'
+services:
+  # データベース
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_USER: root
+      MYSQL_DATABASE: myapp_development
+      TZ: Asia/Tokyo
+    # https://sunday-morning.app/posts/2020-07-29-docker-mysql8-mbind-operation-not-permitted
+    cap_add:
+      - SYS_NICE
+    ports:
+      - "3306:3306"
+    #MySQL8.0からセキュリティが強化されたようで、--default-authentication-plugin=mysql_native_password を実行して認証方式を mysql_native_password へ変更する必要があり
+    command: --default-authentication-plugin=mysql_native_password
+  # APIサーバ
+  web:
+    build: .
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 80 -b '0.0.0.0'"
+    volumes:
+      - .:/myapp
+      - frontend:/myapp/frontend
+    ports:
+      - "3000:80"
+    # 下記ふたつがコンテナ内の標準入出力をローカルマシンのターミナルにアタッチするための設定
+    stdin_open: true
+    tty: true # コンテナを起動させ続けるための記載
+    depends_on:
+      - db
+    environment:
+      RAILS_DB_HOST: db # データベースコンテナ名と一致させる
+      RAILS_DB_NAME: myapp_development # MYSQL_DATABASEと一致させる
+      RAILS_DB_USER: root # MYSQL_USERと一致させる
+      RAILS_DB_PASSWORD: password # MYSQL_PASSWORDと一致させる
+      RAILS_ENV: development
+      RAILS_HOST_URL: localhost:3000
+  # フロントエンド
+  frontend:
+    build: ./frontend
+    tty: true # コンテナを起動させ続けるための記載
+    ports:
+      - 80:3000
+    command: npm run dev
+    volumes:
+      - ./frontend:/frontend
