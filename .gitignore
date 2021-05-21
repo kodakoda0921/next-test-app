@@ -88,3 +88,6 @@ tags
 
 # Ignore uploaded files in development
 /storage/*
+
+#idea
+.idea
